@@ -1,0 +1,134 @@
+# Анкета v1 — интервью для разбора бизнеса
+# Формат: блоки → базовые вопросы → правила углубления (followups).
+# fills — какие поля business_model.schema.json заполняет ответ.
+# Цель: 15–20 минут на базовый проход, дальше ИИ углубляется только туда, где пусто или болит.
+
+version: "1.0"
+language: ru
+
+interview_rules:
+  - Задавать по одному вопросу, коротко, без канцелярита.
+  - Если ответ размытый («ну, менеджер всё делает») — один уточняющий вопрос, не больше двух подряд.
+  - Не выдумывать: всё, что не сказано прямо, помечать source=inferred и выносить в open_questions.
+  - После каждого блока коротко пересказать понятое и попросить поправить.
+  - Можно отвечать голосом или прислать транскрипт созвона вместо ответов.
+
+blocks:
+
+  - id: intro
+    title: Знакомство
+    questions:
+      - id: q_company
+        text: Как называется компания и чем занимаетесь — в двух словах, как объяснили бы другу?
+        fills: [company.name, company.description, company.industry]
+      - id: q_products
+        text: Что продаёте? Перечислите основные товары или услуги и примерный средний чек.
+        fills: [products]
+      - id: q_clients
+        text: Кто ваши клиенты — компании или частные лица? Опишите типичного клиента.
+        fills: [company.business_model, customer_segments]
+      - id: q_size
+        text: Сколько человек в команде, включая вас? Если готовы — примерный оборот в месяц.
+        fills: [company.employees, company.revenue_range]
+      - id: q_goals
+        text: Чего хотите добиться в ближайший год? Что для вас будет результатом?
+        fills: [company.goals]
+
+  - id: leads
+    title: Откуда приходят клиенты
+    questions:
+      - id: q_lead_sources
+        text: Откуда приходят клиенты? Сайт, реклама, соцсети, сарафан, маркетплейсы, холодные звонки — что из этого и какой канал главный?
+        fills: [channels]
+      - id: q_lead_volume
+        text: Сколько обращений примерно в месяц? И сколько из них становятся покупателями?
+        fills: [channels.leads_per_month, metrics]
+      - id: q_communication
+        text: Где общаетесь с клиентами — телефон, WhatsApp, Telegram, почта, Instagram?
+        fills: [channels, systems]
+
+  - id: structure
+    title: Команда и роли
+    questions:
+      - id: q_departments
+        text: Какие есть отделы или направления? Кто чем занимается?
+        fills: [departments, roles]
+      - id: q_owner_role
+        text: Какие задачи сейчас делаете лично вы? Что без вас не происходит?
+        fills: [roles.is_owner, issues.owner_dependency]
+      - id: q_decisions
+        text: Кто принимает решения по скидкам, срокам, нестандартным заказам?
+        fills: [roles.responsibilities]
+
+  - id: sales
+    title: Путь клиента от заявки до оплаты
+    questions:
+      - id: q_sales_flow
+        text: Опишите по шагам, что происходит, когда приходит новая заявка — и до момента оплаты. Кто что делает?
+        fills: [processes]
+        followups:
+          - Кто первым видит заявку и через сколько отвечает?
+          - Где это фиксируется — CRM, таблица, блокнот, просто в мессенджере?
+          - Что происходит, если клиент не ответил или сказал «подумаю»?
+          - Где чаще всего клиенты отваливаются?
+      - id: q_sales_control
+        text: Как вы понимаете, сколько заявок в работе и на каком они этапе?
+        fills: [metrics, issues.no_tracking]
+
+  - id: fulfillment
+    title: Выполнение заказа
+    questions:
+      - id: q_fulfillment_flow
+        text: Что происходит после оплаты? Как заказ передаётся в производство, доставку или исполнителю?
+        fills: [processes]
+        followups:
+          - Как исполнитель узнаёт о заказе и его деталях?
+          - Бывает, что что-то теряется или путается при передаче? Пример?
+          - Как клиент узнаёт о статусе заказа?
+      - id: q_after_sale
+        text: Что происходит после того, как клиент получил заказ? Есть повторные продажи, отзывы, напоминания?
+        fills: [processes, issues.no_follow_up]
+
+  - id: systems
+    title: Инструменты
+    questions:
+      - id: q_tools
+        text: Какими программами и сервисами пользуетесь? CRM, Excel/Google-таблицы, 1С, мессенджеры, телефония, таск-трекер.
+        fills: [systems]
+      - id: q_double_entry
+        text: Есть данные, которые вносятся вручную в несколько мест? Например, заказ сначала в мессенджер, потом в таблицу, потом в 1С.
+        fills: [issues.duplicate_data, steps.is_manual]
+
+  - id: numbers
+    title: Цифры и контроль
+    questions:
+      - id: q_metrics
+        text: Какие показатели вы регулярно смотрите? Выручка, количество заявок, конверсия, средний чек — что из этого считаете и как часто?
+        fills: [metrics]
+
+  - id: pains
+    title: Где болит
+    questions:
+      - id: q_losses
+        text: Где, по-вашему, вы теряете клиентов, деньги или время?
+        fills: [issues]
+      - id: q_single_person
+        text: Есть процессы, которые держатся на одном человеке? Что будет, если он уйдёт в отпуск?
+        fills: [issues.single_point_of_failure]
+      - id: q_routine
+        text: Какая рутина бесит больше всего вас или команду?
+        fills: [issues.manual_work]
+      - id: q_magic_wand
+        text: Если бы можно было по щелчку исправить одну вещь в бизнесе — что это было бы?
+        fills: [issues, company.goals]
+
+# Правило углубления для каждого процесса, найденного в ответах
+process_deep_dive:
+  ask_until_filled: [trigger, steps, steps.role_id, steps.system_ids, result]
+  questions:
+    - С чего начинается этот процесс?
+    - Перечислите шаги по порядку. Кто делает каждый шаг?
+    - Где на каком шаге приходится ждать? Сколько?
+    - В какой программе это делается?
+    - Чем процесс заканчивается и как понять, что он прошёл успешно?
+  max_followups_per_process: 5

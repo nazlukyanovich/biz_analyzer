@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "business_model.schema.json",
+  "title": "BusinessModel",
+  "description": "Единая модель бизнеса клиента. ИИ заполняет её по ответам анкеты; майндкарта, BPMN и отчёт об узких местах генерируются только из неё.",
+  "type": "object",
+  "required": ["meta", "company", "departments", "roles", "processes"],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "source": {
+      "type": "string",
+      "enum": ["stated", "inferred"],
+      "description": "stated — клиент прямо сказал; inferred — ИИ достроил. Всё inferred показывается клиенту на подтверждение."
+    },
+    "evidence": {
+      "type": "string",
+      "description": "Цитата или ссылка на ответ клиента (question_id), на котором основан элемент."
+    }
+  },
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["interview_id", "created_at"],
+      "properties": {
+        "interview_id": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "schema_version": { "type": "string", "const": "1.0" },
+        "completeness": {
+          "type": "number", "minimum": 0, "maximum": 1,
+          "description": "Насколько полно заполнена модель. Ниже 0.6 — интервью нужно продолжать."
+        },
+        "open_questions": {
+          "type": "array",
+          "description": "Пробелы, которые ИИ не смог закрыть. Идут в доп. вопросы клиенту или эксперту.",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "company": {
+      "type": "object",
+      "required": ["name", "description"],
+      "properties": {
+        "name": { "type": "string" },
+        "industry": { "type": "string" },
+        "description": { "type": "string", "description": "Чем занимается бизнес, 1–3 предложения." },
+        "business_model": { "type": "string", "enum": ["b2b", "b2c", "b2b2c", "mixed"] },
+        "geography": { "type": "string" },
+        "employees": { "type": "integer", "minimum": 1 },
+        "revenue_range": { "type": "string", "description": "Диапазон оборота, если клиент назвал." },
+        "goals": { "type": "array", "items": { "type": "string" }, "description": "Цели собственника на 6–12 месяцев." }
+      }
+    },
+
+    "products": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string" },
+          "kind": { "type": "string", "enum": ["product", "service", "subscription", "project"] },
+          "avg_check": { "type": "string" },
+          "share_of_revenue": { "type": "string" }
+        }
+      }
+    },
+
+    "customer_segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "channel_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+        }
+      }
+    },
+
+    "channels": {
+      "type": "array",
+      "description": "Откуда приходят клиенты и через что с ними общаются.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "kind"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string" },
+          "kind": { "type": "string", "enum": ["lead_source", "communication", "sales_point", "delivery"] },
+          "leads_per_month": { "type": "string" },
+          "is_main": { "type": "boolean" }
+        }
+      }
+    },
+
+    "departments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string" },
+          "head_role_id": { "$ref": "#/$defs/id" }
+        }
+      }
+    },
+
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string" },
+          "department_id": { "$ref": "#/$defs/id" },
+          "headcount": { "type": "integer", "minimum": 0 },
+          "responsibilities": { "type": "array", "items": { "type": "string" } },
+          "is_owner": { "type": "boolean", "description": "Роль собственника — важно для поиска процессов, которые держатся на нём." }
+        }
+      }
+    },
+
+    "systems": {
+      "type": "array",
+      "description": "Инструменты: CRM, таблицы, мессенджеры, учёт, сайт.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "category"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string" },
+          "category": {
+            "type": "string",
+            "enum": ["crm", "erp", "accounting", "spreadsheet", "messenger", "telephony", "website", "marketplace", "task_manager", "paper", "other"]
+          },
+          "used_by_role_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+          "integrations": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+        }
+      }
+    },
+
+    "processes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "category", "steps"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string" },
+          "category": { "type": "string", "enum": ["core", "support", "management"] },
+          "owner_role_id": { "$ref": "#/$defs/id" },
+          "trigger": { "type": "string", "description": "Что запускает процесс: заявка, звонок, оплата, дата." },
+          "result": { "type": "string", "description": "Чем процесс заканчивается." },
+          "frequency": { "type": "string", "description": "Сколько раз в день/неделю/месяц." },
+          "source": { "$ref": "#/$defs/source" },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "name", "type"],
+              "properties": {
+                "id": { "$ref": "#/$defs/id" },
+                "name": { "type": "string" },
+                "type": {
+                  "type": "string",
+                  "enum": ["start", "task", "decision", "wait", "message", "end"],
+                  "description": "Маппится в BPMN: start→startEvent, task→task, decision→exclusiveGateway, wait→intermediateCatchEvent, message→intermediateThrowEvent, end→endEvent."
+                },
+                "role_id": { "$ref": "#/$defs/id", "description": "Исполнитель → дорожка (lane) в BPMN." },
+                "system_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+                "is_manual": { "type": "boolean" },
+                "duration": { "type": "string" },
+                "wait_time": { "type": "string", "description": "Сколько шаг ждёт перед стартом — главный индикатор узкого места." },
+                "next": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["step_id"],
+                    "properties": {
+                      "step_id": { "$ref": "#/$defs/id" },
+                      "condition": { "type": "string", "description": "Для decision: при каком условии идём сюда." }
+                    }
+                  }
+                },
+                "source": { "$ref": "#/$defs/source" },
+                "evidence": { "$ref": "#/$defs/evidence" }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "name": { "type": "string" },
+          "value": { "type": "string" },
+          "period": { "type": "string" },
+          "is_tracked": { "type": "boolean", "description": "false — показатель важен, но его никто не считает." },
+          "process_id": { "$ref": "#/$defs/id" }
+        }
+      }
+    },
+
+    "issues": {
+      "type": "array",
+      "description": "Узкие места и риски. Основа отчёта и будущих рекомендаций.",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "description", "severity", "source"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "type": {
+            "type": "string",
+            "enum": [
+              "bottleneck",
+              "manual_work",
+              "handoff_loss",
+              "no_tracking",
+              "single_point_of_failure",
+              "owner_dependency",
+              "duplicate_data",
+              "long_wait",
+              "no_follow_up",
+              "other"
+            ]
+          },
+          "description": { "type": "string" },
+          "process_id": { "$ref": "#/$defs/id" },
+          "step_id": { "$ref": "#/$defs/id" },
+          "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "impact": { "type": "string", "description": "Что теряет бизнес: деньги, клиентов, время, контроль." },
+          "source": { "$ref": "#/$defs/source" },
+          "evidence": { "$ref": "#/$defs/evidence" }
+        }
+      }
+    }
+  }
+}

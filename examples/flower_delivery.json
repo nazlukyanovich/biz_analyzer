@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "interview_id": "demo_flower_delivery",
+    "created_at": "2026-10-28T12:00:00+03:00",
+    "schema_version": "1.0",
+    "completeness": 0.72,
+    "open_questions": [
+      "Сколько заявок в месяц приходит из Instagram, а сколько с сайта?",
+      "Сколько времени в среднем проходит от первого сообщения клиента до ответа менеджера в выходные?",
+      "Кто проверяет качество букета перед отправкой, если собственника нет на месте?"
+    ]
+  },
+  "company": {
+    "name": "Цветочная мастерская (демо)",
+    "industry": "Розничная торговля, доставка цветов",
+    "description": "Демо-модель для проверки генератора. Мастерская собирает букеты под заказ и доставляет по городу, основные продажи идут через Instagram и сайт.",
+    "business_model": "b2c",
+    "geography": "Один город",
+    "employees": 7,
+    "goals": [
+      "Вырасти по выручке на 30% за год",
+      "Перестать терять заявки в праздники"
+    ]
+  },
+  "products": [
+    { "id": "bouquet_custom", "name": "Букеты под заказ", "kind": "product", "avg_check": "85 BYN" },
+    { "id": "bouquet_ready", "name": "Готовые букеты с витрины", "kind": "product", "avg_check": "60 BYN" },
+    { "id": "corporate", "name": "Корпоративные заказы", "kind": "service", "avg_check": "400 BYN" }
+  ],
+  "customer_segments": [
+    { "id": "private", "name": "Частные клиенты", "description": "Покупают к праздникам и датам, решают быстро", "channel_ids": ["instagram", "website"] },
+    { "id": "companies", "name": "Компании", "description": "Офисные праздники и подарки партнёрам", "channel_ids": ["referral"] }
+  ],
+  "channels": [
+    { "id": "instagram", "name": "Instagram", "kind": "lead_source", "leads_per_month": "~250", "is_main": true },
+    { "id": "website", "name": "Сайт", "kind": "lead_source", "leads_per_month": "~80" },
+    { "id": "referral", "name": "Сарафан", "kind": "lead_source" },
+    { "id": "whatsapp_ch", "name": "WhatsApp", "kind": "communication" },
+    { "id": "courier_delivery", "name": "Курьерская доставка", "kind": "delivery" }
+  ],
+  "departments": [
+    { "id": "management", "name": "Управление", "head_role_id": "owner" },
+    { "id": "sales", "name": "Продажи", "head_role_id": "owner" },
+    { "id": "production", "name": "Мастерская", "head_role_id": "senior_florist" },
+    { "id": "logistics", "name": "Доставка" }
+  ],
+  "roles": [
+    { "id": "owner", "name": "Собственник", "department_id": "management", "headcount": 1, "is_owner": true,
+      "responsibilities": ["Закупка цветов", "Согласование скидок", "Корпоративные клиенты"] },
+    { "id": "manager", "name": "Менеджер", "department_id": "sales", "headcount": 2,
+      "responsibilities": ["Ответы в Instagram и WhatsApp", "Приём оплаты"] },
+    { "id": "senior_florist", "name": "Старший флорист", "department_id": "production", "headcount": 1 },
+    { "id": "florist", "name": "Флорист", "department_id": "production", "headcount": 2 },
+    { "id": "courier", "name": "Курьер", "department_id": "logistics", "headcount": 1 }
+  ],
+  "systems": [
+    { "id": "instagram_direct", "name": "Instagram Direct", "category": "messenger", "used_by_role_ids": ["manager"] },
+    { "id": "whatsapp", "name": "WhatsApp", "category": "messenger", "used_by_role_ids": ["manager", "florist", "courier"] },
+    { "id": "gsheets", "name": "Google Таблица заказов", "category": "spreadsheet", "used_by_role_ids": ["manager", "owner"] },
+    { "id": "notebook", "name": "Бумажный журнал", "category": "paper", "used_by_role_ids": ["florist"] },
+    { "id": "acquiring", "name": "Ссылка на оплату (эквайринг)", "category": "other", "used_by_role_ids": ["manager"] }
+  ],
+  "processes": [
+    {
+      "id": "sales",
+      "name": "Продажа: от заявки до оплаты",
+      "category": "core",
+      "owner_role_id": "manager",
+      "trigger": "Клиент пишет в Instagram, на сайт или в WhatsApp",
+      "result": "Заказ оплачен и записан в таблицу",
+      "frequency": "10–15 раз в день, в праздники до 80",
+      "source": "stated",
+      "steps": [
+        { "id": "s_lead", "name": "Новая заявка", "type": "start", "next": [{ "step_id": "s_reply" }] },
+        { "id": "s_reply", "name": "Ответить клиенту", "type": "task", "role_id": "manager",
+          "system_ids": ["instagram_direct", "whatsapp"], "is_manual": true, "wait_time": "до 2 часов", "source": "stated",
+          "next": [{ "step_id": "s_pick" }] },
+        { "id": "s_pick", "name": "Подобрать букет и прислать фото", "type": "task", "role_id": "manager",
+          "system_ids": ["instagram_direct"], "is_manual": true, "source": "stated",
+          "next": [{ "step_id": "s_agree" }] },
+        { "id": "s_agree", "name": "Клиент согласен?", "type": "decision", "role_id": "manager", "source": "stated",
+          "next": [
+            { "step_id": "s_invoice", "condition": "Да" },
+            { "step_id": "s_think", "condition": "Подумает" },
+            { "step_id": "s_discount", "condition": "Просит скидку" }
+          ] },
+        { "id": "s_discount", "name": "Согласовать скидку", "type": "task", "role_id": "owner",
+          "system_ids": ["whatsapp"], "wait_time": "до дня", "source": "stated",
+          "next": [{ "step_id": "s_pick" }] },
+        { "id": "s_think", "name": "Клиент ушёл думать", "type": "wait", "role_id": "manager", "source": "inferred",
+          "next": [{ "step_id": "s_lost" }] },
+        { "id": "s_lost", "name": "Заявка потеряна", "type": "end", "role_id": "manager" },
+        { "id": "s_invoice", "name": "Отправить ссылку на оплату", "type": "task", "role_id": "manager",
+          "system_ids": ["acquiring"], "source": "stated",
+          "next": [{ "step_id": "s_record" }] },
+        { "id": "s_record", "name": "Записать заказ в таблицу", "type": "task", "role_id": "manager",
+          "system_ids": ["gsheets"], "is_manual": true, "source": "stated",
+          "next": [{ "step_id": "s_paid" }] },
+        { "id": "s_paid", "name": "Заказ оплачен", "type": "end", "role_id": "manager" }
+      ]
+    },
+    {
+      "id": "fulfillment",
+      "name": "Сборка и доставка заказа",
+      "category": "core",
+      "owner_role_id": "senior_florist",
+      "trigger": "Заказ оплачен",
+      "result": "Букет вручён получателю",
+      "frequency": "10–15 раз в день",
+      "source": "stated",
+      "steps": [
+        { "id": "f_start", "name": "Заказ оплачен", "type": "start", "next": [{ "step_id": "f_send" }] },
+        { "id": "f_send", "name": "Переслать детали в чат флористов", "type": "task", "role_id": "manager",
+          "system_ids": ["whatsapp"], "is_manual": true, "source": "stated",
+          "next": [{ "step_id": "f_log" }] },
+        { "id": "f_log", "name": "Записать заказ в журнал", "type": "task", "role_id": "florist",
+          "system_ids": ["notebook"], "is_manual": true, "source": "stated",
+          "next": [{ "step_id": "f_assemble" }] },
+        { "id": "f_assemble", "name": "Собрать букет", "type": "task", "role_id": "florist", "duration": "20–40 минут", "source": "stated",
+          "next": [{ "step_id": "f_check" }] },
+        { "id": "f_check", "name": "Проверить качество", "type": "task", "role_id": "senior_florist", "source": "inferred",
+          "next": [{ "step_id": "f_photo" }] },
+        { "id": "f_photo", "name": "Фото букета клиенту", "type": "message", "role_id": "manager", "source": "stated",
+          "next": [{ "step_id": "f_courier" }] },
+        { "id": "f_courier", "name": "Передать курьеру и объяснить адрес", "type": "task", "role_id": "manager",
+          "system_ids": ["whatsapp"], "is_manual": true, "wait_time": "до часа", "source": "stated",
+          "next": [{ "step_id": "f_deliver" }] },
+        { "id": "f_deliver", "name": "Доставить букет", "type": "task", "role_id": "courier", "source": "stated",
+          "next": [{ "step_id": "f_done" }] },
+        { "id": "f_done", "name": "Букет вручён", "type": "end", "role_id": "courier" }
+      ]
+    }
+  ],
+  "metrics": [
+    { "id": "m_revenue", "name": "Выручка за месяц", "is_tracked": true, "period": "месяц" },
+    { "id": "m_leads", "name": "Количество заявок", "is_tracked": false, "process_id": "sales" },
+    { "id": "m_conv", "name": "Конверсия заявки в оплату", "is_tracked": false, "process_id": "sales" },
+    { "id": "m_repeat", "name": "Доля повторных клиентов", "is_tracked": false }
+  ],
+  "issues": [
+    { "id": "i_slow_reply", "type": "long_wait", "severity": "critical", "process_id": "sales", "step_id": "s_reply",
+      "description": "Ответ на заявку занимает до 2 часов, в праздники больше",
+      "impact": "Клиент уходит к тем, кто ответил быстрее", "source": "stated", "evidence": "q_sales_flow" },
+    { "id": "i_no_follow", "type": "no_follow_up", "severity": "high", "process_id": "sales", "step_id": "s_think",
+      "description": "Тем, кто ушёл думать, никто не пишет повторно",
+      "impact": "Часть тёплых заявок теряется без попытки дожать", "source": "inferred" },
+    { "id": "i_discount", "type": "owner_dependency", "severity": "medium", "process_id": "sales", "step_id": "s_discount",
+      "description": "Любую скидку согласует собственник",
+      "impact": "Сделка зависает, собственник тратит время на мелочи", "source": "stated", "evidence": "q_decisions" },
+    { "id": "i_double", "type": "duplicate_data", "severity": "high", "process_id": "fulfillment", "step_id": "f_log",
+      "description": "Заказ вносится трижды: переписка, таблица, бумажный журнал",
+      "impact": "Ошибки в адресах и составе букета, лишнее время", "source": "stated", "evidence": "q_double_entry" },
+    { "id": "i_courier", "type": "handoff_loss", "severity": "medium", "process_id": "fulfillment", "step_id": "f_courier",
+      "description": "Курьер получает адрес и детали голосом или пересылкой в WhatsApp",
+      "impact": "Путаница с адресами и временем доставки", "source": "stated" },
+    { "id": "i_no_metrics", "type": "no_tracking", "severity": "high", "process_id": "sales",
+      "description": "Не считают количество заявок и конверсию",
+      "impact": "Невозможно понять, где теряются деньги и что работает в рекламе", "source": "stated", "evidence": "q_metrics" }
+  ]
+}
