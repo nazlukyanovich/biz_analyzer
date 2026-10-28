@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Картинки бота</title>
+<!-- Генератор иконки и приветственной картинки бота в фирменном стиле сайта lukyanovich.tech:
+     ночной фон, светящаяся сфера с кольцом, Unbounded + Manrope, фиолетовый и персиковый.
+     Открыть через локальный сервер (см. assets/bot/README.md), картинки сохранятся рядом. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700&display=swap">
+<style>
+  body{margin:0;background:#05030B;color:#F3EEFF;font:14px Manrope,sans-serif;padding:24px;display:flex;flex-direction:column;gap:24px}
+  canvas{max-width:100%;height:auto;border-radius:12px;box-shadow:0 0 0 1px #2A1272}
+  #icon{width:320px}
+  #status{font-weight:700}
+</style>
+</head>
+<body>
+<div id="status">Рисую…</div>
+<canvas id="welcome" width="1280" height="720"></canvas>
+<canvas id="icon" width="640" height="640"></canvas>
+<script>
+const C = {
+  bg: "#0A0614", glow: "#1C1040", violet: "#6A3DF0", violetHi: "#B79CFF", magenta: "#C24BFF",
+  peach: "#FFB38A", peachHi: "#FFD3B8", text: "#F3EEFF", soft: "#CFC6E8", muted: "#A79CC4",
+};
+const DISPLAY = "Unbounded", BODY = "Manrope";
+
+function background(ctx, w, h, gx, gy, gr) {
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, w, h);
+  let g = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+  g.addColorStop(0, "#2A1458");
+  g.addColorStop(0.45, C.glow);
+  g.addColorStop(1, "rgba(10,6,20,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+}
+
+// Светящаяся сфера с кольцом, как в шапке сайта. s — диаметр сферы.
+function orb(ctx, cx, cy, s, { ring = true } = {}) {
+  const r = s / 2;
+  // аура: конический градиент, сильно размытый
+  ctx.save();
+  ctx.filter = `blur(${s * 0.16}px)`;
+  ctx.globalAlpha = 0.8;
+  const cg = ctx.createConicGradient((200 - 90) * Math.PI / 180, cx, cy);
+  ["#6A3DF0", "#C24BFF", "#FFB38A", "#FFD3B8", "#9B7BFF", "#3B1FA3", "#6A3DF0"]
+    .forEach((c, i, a) => cg.addColorStop(i / (a.length - 1), c));
+  ctx.fillStyle = cg;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 1.96, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  const tilt = -14 * Math.PI / 180, rx = s * 0.8, ry = s * 0.8 * Math.cos(72 * Math.PI / 180);
+  const ringStroke = (from, to) => {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,211,184,.88)";
+    ctx.lineWidth = Math.max(2, s * 0.014);
+    ctx.shadowColor = "rgba(255,179,138,.75)";
+    ctx.shadowBlur = s * 0.08;
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, tilt, from, to); ctx.stroke();
+    ctx.restore();
+  };
+  if (ring) ringStroke(Math.PI, Math.PI * 2);  // задняя половина кольца — за сферой
+
+  // свечение вокруг сферы
+  ctx.save();
+  ctx.shadowColor = "rgba(194,75,255,.6)";
+  ctx.shadowBlur = s * 0.3;
+  ctx.fillStyle = "#2A1272";
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // сама сфера
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+  const hx = cx - r + s * 0.34, hy = cy - r + s * 0.28;
+  const g = ctx.createRadialGradient(hx, hy, 0, hx, hy, s * 0.98);
+  [[0, "#FFFFFF"], [0.1, "#F2EAFF"], [0.32, "#B79CFF"], [0.58, "#6A3DF0"], [0.85, "#2A1272"], [1, "#140838"]]
+    .forEach(([o, c]) => g.addColorStop(o, c));
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - r, cy - r, s, s);
+  // тень снизу справа и тёплый отсвет сверху слева
+  let sh = ctx.createRadialGradient(cx + r * 0.55, cy + r * 0.7, 0, cx + r * 0.55, cy + r * 0.7, r * 1.1);
+  sh.addColorStop(0, "rgba(20,8,56,.55)"); sh.addColorStop(1, "rgba(20,8,56,0)");
+  ctx.fillStyle = sh; ctx.fillRect(cx - r, cy - r, s, s);
+  let wl = ctx.createRadialGradient(cx - r * 0.75, cy - r * 0.8, 0, cx - r * 0.75, cy - r * 0.8, r * 0.9);
+  wl.addColorStop(0, "rgba(255,211,184,.35)"); wl.addColorStop(1, "rgba(255,211,184,0)");
+  ctx.fillStyle = wl; ctx.fillRect(cx - r, cy - r, s, s);
+  ctx.restore();
+
+  if (ring) ringStroke(0, Math.PI);  // передняя половина — поверх
+}
+
+function grain(ctx, w, h, alpha) {
+  const img = ctx.createImageData(w, h);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = Math.random() * 255;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+    img.data[i + 3] = 255;
+  }
+  const tmp = document.createElement("canvas");
+  tmp.width = w; tmp.height = h;
+  tmp.getContext("2d").putImageData(img, 0, 0);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.globalCompositeOperation = "overlay";
+  ctx.drawImage(tmp, 0, 0);
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
+}
+
+// Стеклянная карточка, как на сайте
+function glass(ctx, x, y, w, h, r) {
+  ctx.save();
+  ctx.shadowColor = "rgba(5,2,15,.45)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12;
+  const g = ctx.createLinearGradient(x, y, x + w, y + h);
+  g.addColorStop(0, "rgba(255,255,255,.14)"); g.addColorStop(1, "rgba(255,255,255,.05)");
+  roundRect(ctx, x, y, w, h, r);
+  ctx.fillStyle = "rgba(18,11,36,.72)"; ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,.16)"; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+}
+
+function peachGradient(ctx, x0, x1) {
+  const g = ctx.createLinearGradient(x0, 0, x1, 0);
+  g.addColorStop(0, C.peachHi); g.addColorStop(1, C.peach);
+  return g;
+}
+
+// Карточка-уведомление: квадрат с символом + две строки
+function chip(ctx, x, y, mark, title, sub) {
+  ctx.font = `700 22px ${BODY}`;
+  const tw = ctx.measureText(title).width;
+  ctx.font = `500 17px ${BODY}`;
+  const sw = ctx.measureText(sub).width;
+  const w = 24 + 52 + 16 + Math.max(tw, sw) + 26, h = 92;
+  glass(ctx, x, y, w, h, 22);
+  roundRect(ctx, x + 22, y + 20, 52, 52, 15);
+  ctx.fillStyle = peachGradient(ctx, x + 22, x + 74); ctx.fill();
+  ctx.fillStyle = "#2A0E1A";
+  ctx.font = `800 22px ${DISPLAY}`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(mark, x + 48, y + 47);
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = C.text; ctx.font = `700 22px ${BODY}`;
+  ctx.fillText(title, x + 92, y + 42);
+  ctx.fillStyle = C.soft; ctx.font = `500 17px ${BODY}`;
+  ctx.fillText(sub, x + 92, y + 68);
+}
+
+function pill(ctx, x, y, label, accent) {
+  ctx.font = `700 19px ${BODY}`;
+  const w = ctx.measureText(label).width + 44, h = 46;
+  roundRect(ctx, x, y, w, h, h / 2);
+  if (accent) {
+    ctx.fillStyle = peachGradient(ctx, x, x + w); ctx.fill();
+    ctx.fillStyle = "#2A0E1A";
+  } else {
+    ctx.fillStyle = "rgba(255,255,255,.07)"; ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.2)"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = C.text;
+  }
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, x + 22, y + h / 2 + 1);
+  ctx.textBaseline = "alphabetic";
+  return w;
+}
+
+function drawWelcome() {
+  const cv = document.getElementById("welcome"), ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  background(ctx, W, H, 960, 340, 620);
+  orb(ctx, 965, 345, 300);
+  grain(ctx, W, H, 0.16);
+
+  chip(ctx, 700, 118, "!", "Узкое место найдено", "Заявки теряются в директе");
+  chip(ctx, 820, 548, "✓", "Карта бизнеса готова", "8 процессов · 5 узких мест");
+
+  const X = 80;
+  ctx.fillStyle = C.peach;
+  ctx.font = `700 18px ${BODY}`;
+  ctx.letterSpacing = "3px";
+  ctx.fillText("РАЗБОР БИЗНЕСА В TELEGRAM", X, 132);
+  ctx.letterSpacing = "0px";
+
+  // Заголовок: последняя строка — персиковым градиентом, как <em> на сайте
+  const lines = [["Покажем, где", false], ["ваш бизнес", false], ["теряет деньги", true]];
+  let size = 64;
+  ctx.font = `800 ${size}px ${DISPLAY}`;
+  const widest = Math.max(...lines.map(([t]) => ctx.measureText(t).width));
+  if (widest > 600) size = Math.floor(size * 600 / widest);
+  ctx.font = `800 ${size}px ${DISPLAY}`;
+  let y = 132 + size * 1.25;
+  for (const [t, accent] of lines) {
+    const w = ctx.measureText(t).width;
+    ctx.fillStyle = accent ? peachGradient(ctx, X, X + w) : C.text;
+    ctx.fillText(t, X, y);
+    y += size * 1.12;
+  }
+
+  ctx.fillStyle = C.soft;
+  ctx.font = `500 25px ${BODY}`;
+  const sub = ["Ответьте на вопросы текстом или голосом —", "получите карту бизнеса, схемы процессов", "и список узких мест."];
+  y += 8;
+  for (const t of sub) { ctx.fillText(t, X, y); y += 36; }
+
+  let px = X;
+  const py = H - 96;
+  px += pill(ctx, px, py, "5 минут — экспресс", true) + 12;
+  px += pill(ctx, px, py, "15–20 минут — полный", false) + 12;
+  pill(ctx, px, py, "Можно голосом", false);
+}
+
+function drawIcon() {
+  const cv = document.getElementById("icon"), ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  background(ctx, W, H, W / 2, H / 2, W * 0.62);
+  orb(ctx, W / 2, H / 2, 300);
+  grain(ctx, W, H, 0.14);
+}
+
+async function save(id, name, type, quality) {
+  const data = document.getElementById(id).toDataURL(type, quality);
+  const r = await fetch(`/save?name=${name}`, { method: "POST", body: data });
+  if (!r.ok) throw new Error(`${name}: ${r.status}`);
+}
+
+(async () => {
+  // Текст-образец нужен, чтобы подгрузилась кириллица, а не только латиница
+  const sample = "Покажем Abc 123 — ✓";
+  await Promise.all([
+    document.fonts.load(`800 64px ${DISPLAY}`, sample), document.fonts.load(`500 20px ${BODY}`, sample),
+    document.fonts.load(`700 20px ${BODY}`, sample),
+  ]);
+  drawWelcome();
+  drawIcon();
+  const st = document.getElementById("status");
+  try {
+    await save("welcome", "welcome.jpg", "image/jpeg", 0.92);
+    await save("icon", "icon.png", "image/png");
+    st.textContent = "Готово: welcome.jpg и icon.png сохранены";
+  } catch (e) {
+    st.textContent = "Нарисовано, но не сохранено (нужен локальный сервер): " + e.message;
+  }
+  window.done = st.textContent;
+})();
+</script>
+</body>
+</html>

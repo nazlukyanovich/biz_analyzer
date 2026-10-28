@@ -27,7 +27,18 @@ class Storage:
                 finished_at TEXT NOT NULL,
                 answers TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id INTEGER NOT NULL,
+                url TEXT NOT NULL,
+                sent_at TEXT NOT NULL
+            );
         """)
+        # Сколько напоминаний отправлено с последнего действия клиента (для старых баз — добавляем столбец)
+        columns = [row[1] for row in self.db.execute("PRAGMA table_info(sessions)")]
+        if "reminded" not in columns:
+            self.db.execute("ALTER TABLE sessions ADD COLUMN reminded INTEGER NOT NULL DEFAULT 0")
+            self.db.commit()
 
     def load_session(self, chat_id: int) -> dict | None:
         row = self.db.execute("SELECT state FROM sessions WHERE chat_id = ?", (chat_id,)).fetchone()
@@ -35,12 +46,51 @@ class Storage:
 
     def save_session(self, chat_id: int, user: str, state: dict) -> None:
         self.db.execute(
-            "INSERT INTO sessions (chat_id, user, state, updated_at) VALUES (?, ?, ?, ?) "
+            "INSERT INTO sessions (chat_id, user, state, updated_at, reminded) VALUES (?, ?, ?, ?, 0) "
             "ON CONFLICT(chat_id) DO UPDATE SET user = excluded.user, state = excluded.state, "
-            "updated_at = excluded.updated_at",
+            "updated_at = excluded.updated_at, reminded = 0",
             (chat_id, user, json.dumps(state, ensure_ascii=False), _now()),
         )
         self.db.commit()
+
+    def unfinished_sessions(self) -> list[tuple[int, dict, datetime, int]]:
+        """Незавершённые интервью: chat_id, состояние, время последнего действия, сколько раз напомнили."""
+        rows = self.db.execute("SELECT chat_id, state, updated_at, reminded FROM sessions").fetchall()
+        result = []
+        for chat_id, state, updated_at, reminded in rows:
+            state = json.loads(state)
+            if not state.get("finished"):
+                result.append((chat_id, state, datetime.fromisoformat(updated_at), reminded))
+        return result
+
+    def last_finished_at(self, chat_id: int) -> str | None:
+        row = self.db.execute("SELECT MAX(finished_at) FROM interviews WHERE chat_id = ?", (chat_id,)).fetchone()
+        return row[0]
+
+    def add_report(self, chat_id: int, url: str) -> None:
+        self.db.execute("INSERT INTO reports (chat_id, url, sent_at) VALUES (?, ?, ?)", (chat_id, url, _now()))
+        self.db.commit()
+
+    def last_report(self, chat_id: int) -> tuple[str, str] | None:
+        """Последний отправленный отчёт: ссылка и когда отправлен."""
+        return self.db.execute("SELECT url, sent_at FROM reports WHERE chat_id = ? ORDER BY id DESC LIMIT 1",
+                               (chat_id,)).fetchone()
+
+    def mark_reminded(self, chat_id: int, reminded: int) -> None:
+        # updated_at не трогаем: напоминание — не действие клиента
+        self.db.execute("UPDATE sessions SET reminded = ? WHERE chat_id = ?", (reminded, chat_id))
+        self.db.commit()
+
+    def delete_user(self, chat_id: int) -> int:
+        """Удаляет всё о клиенте: текущее интервью, готовые ответы в базе и файлы. Возвращает число файлов."""
+        self.db.execute("DELETE FROM sessions WHERE chat_id = ?", (chat_id,))
+        self.db.execute("DELETE FROM interviews WHERE chat_id = ?", (chat_id,))
+        self.db.execute("DELETE FROM reports WHERE chat_id = ?", (chat_id,))
+        self.db.commit()
+        files = list(self.answers_dir.glob(f"{chat_id}_*"))
+        for path in files:
+            path.unlink()
+        return len(files)
 
     def save_finished(self, chat_id: int, user: str, export: dict, markdown: str) -> tuple[Path, Path]:
         """Сохраняет готовые ответы в базу и в файлы data/answers/*.json и *.md."""
