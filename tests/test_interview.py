@@ -37,6 +37,7 @@ class InterviewTest(unittest.TestCase):
     def test_vague_answer_gets_clarification_then_moves_on(self):
         iv = Interview()
         iv.start()
+        iv.choose_mode("full")
         out = iv.reply("цветы")
         self.assertIn("что конкретно", out[0].lower())
         out = iv.reply("Собираем и доставляем букеты по городу за два часа")
@@ -45,6 +46,7 @@ class InterviewTest(unittest.TestCase):
     def test_max_two_clarifications(self):
         iv = Interview()
         iv.start()
+        iv.choose_mode("full")
         iv.state["index"] = list(QUESTIONS).index("q_products")
         iv._ask_main(QUESTIONS["q_products"])
         iv.reply("букеты")
@@ -56,6 +58,7 @@ class InterviewTest(unittest.TestCase):
     def test_followups_skip_what_was_already_said(self):
         iv = Interview()
         iv.start()
+        iv.choose_mode("full")
         iv.state["index"] = list(QUESTIONS).index("q_sales_flow")
         iv._ask_main(QUESTIONS["q_sales_flow"])
         out = iv.reply(
@@ -68,6 +71,7 @@ class InterviewTest(unittest.TestCase):
     def test_full_run_and_state_roundtrip(self):
         iv = Interview()
         iv.start()
+        iv.choose_mode("full")
         while not iv.finished:
             state = json.loads(json.dumps(iv.state))  # как будто бот перезапустили
             iv = Interview(state)
@@ -80,9 +84,82 @@ class InterviewTest(unittest.TestCase):
     def test_skip(self):
         iv = Interview()
         iv.start()
+        iv.choose_mode("full")
         out = iv.skip()
         self.assertIn("(2/", out[0])
         self.assertTrue(iv.state["records"]["q_company"]["skipped"])
+
+
+
+class BackTest(unittest.TestCase):
+    ANSWER = "Собираем и доставляем букеты по городу за два часа"
+
+    def test_first_question_has_no_back(self):
+        iv = Interview()
+        iv.start()
+        iv.choose_mode("full")
+        self.assertFalse(iv.can_go_back)
+        out = iv.back()
+        self.assertIn("назад некуда", out[0])
+        self.assertEqual(iv.state["index"], 0)
+
+    def test_back_replaces_previous_answer(self):
+        iv = Interview()
+        iv.start()
+        iv.choose_mode("full")
+        first_prompt = iv.current_prompt()
+        iv.reply(self.ANSWER)
+        self.assertIn("(2/", iv.current_prompt())
+        out = iv.back()
+        self.assertEqual(out[1], first_prompt)
+        self.assertNotIn("q_company", iv.state["records"])
+        iv.reply("Флора Люкс, собираем и доставляем букеты по Минску")
+        self.assertEqual(iv.state["records"]["q_company"]["answers"],
+                         ["Флора Люкс, собираем и доставляем букеты по Минску"])
+
+    def test_back_returns_to_clarification_and_undoes_skip(self):
+        iv = Interview()
+        iv.start()
+        iv.choose_mode("full")
+        clarify = iv.reply("цветы")[0]  # короткий ответ → уточнение
+        iv.reply(self.ANSWER)
+        self.assertEqual(iv.back()[1], clarify)
+        iv.skip()
+        self.assertFalse(iv.state["records"]["q_company"]["skipped"])  # ответ уже был
+        iv.back()
+        self.assertEqual(iv.current_prompt(), clarify)
+
+    def test_step_changes_on_every_move(self):
+        iv = Interview()
+        iv.start()
+        iv.choose_mode("full")
+        steps = [iv.step]
+        iv.reply(self.ANSWER)
+        steps.append(iv.step)
+        iv.back()
+        steps.append(iv.step)
+        iv.reply(self.ANSWER)
+        steps.append(iv.step)
+        self.assertEqual(len(set(steps)), len(steps))
+
+    def test_back_survives_restart(self):
+        iv = Interview()
+        iv.start()
+        iv.choose_mode("full")
+        iv.reply(self.ANSWER)
+        iv = Interview(json.loads(json.dumps(iv.state)))
+        self.assertTrue(iv.can_go_back)
+        iv.back()
+        self.assertEqual(iv.state["index"], 0)
+
+    def test_no_back_after_finish(self):
+        iv = Interview()
+        iv.start()
+        iv.choose_mode("full")
+        while not iv.finished:
+            iv.skip()
+        self.assertFalse(iv.can_go_back)
+        self.assertIn("уже пройдено", iv.back()[0])
 
 
 if __name__ == "__main__":

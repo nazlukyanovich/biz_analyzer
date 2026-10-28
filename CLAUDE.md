@@ -15,6 +15,7 @@
 - Отчёт — один HTML, markmap и bpmn-js с CDN.
 - Бот: `bot/` на python-telegram-bot 21. `interview.py` — автомат интервью без Telegram, состояние в SQLite (`data/bot.db`), чтобы переживать перезапуск. Уточнения — `clarifier.py` (правила; нейронка позже как ещё один `Clarifier`). Поля `clarify`, `min_words`, `expect`, `followups.skip_if` в анкете — для бота.
 - Голос: Yandex SpeechKit (`bot/transcriber.py`, выбран из-за доступности и оплаты в РБ/РФ; OpenAI и ElevenLabs там недоступны). До 30 с — API v1 синхронно, длиннее — API v3 recognizeFileAsync. Сервис — сменный `Transcriber`, выбор через `STT_PROVIDER`.
+- Справки по отраслям: `industries/*.yaml`, уклон в отдел продаж (целевой клиент — кто хочет автоматизировать продажи). `bot/industries.py` узнаёт отрасль по `markers` в ответах блока «Знакомство» и добавляет `questions` к вопросам анкеты. Справки `status: short` — дописать. Новые справки и правки формата сначала согласовывать с владельцем.
 
 ## Стиль
 - Общение с владельцем: на «ты», по-дружески, без воды; решения — 2–3 варианта с плюсами и минусами.

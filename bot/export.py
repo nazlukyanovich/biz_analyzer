@@ -5,6 +5,13 @@ def to_markdown(export: dict, user: str = "") -> str:
     lines = [f"# Ответы на анкету{f' — {user}' if user else ''}", ""]
     lines.append(f"Начато: {export['started_at']}, завершено: {export['finished_at']}")
     lines.append("")
+    industry = export.get("industry")
+    lines += [f"Отрасль (определил бот): {industry['title'] if industry else 'не определена'}", ""]
+    mode = "экспресс" if export.get("mode") == "express" else "полный разбор"
+    lines += [f"Режим: {mode}", ""]
+    contact = export.get("contact") or {}
+    contact_text = " ".join(x for x in (contact.get("name"), contact.get("phone"), contact.get("text")) if x)
+    lines += [f"Контакт: {contact_text or 'не оставил'}", ""]
     block = None
     for item in export["items"]:
         if item["block"] != block:

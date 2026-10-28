@@ -33,6 +33,11 @@ def _followup(raw) -> Followup:
     return Followup(text=raw["text"], skip_if=[w.lower() for w in raw.get("skip_if", [])])
 
 
+def load_express_ids(path: Path = QUESTIONNAIRE_PATH) -> list[str]:
+    """Вопросы экспресс-режима (поле express в анкете)."""
+    return yaml.safe_load(path.read_text(encoding="utf-8")).get("express", [])
+
+
 def load_questions(path: Path = QUESTIONNAIRE_PATH) -> list[Question]:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     questions = []
