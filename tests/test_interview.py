@@ -21,6 +21,10 @@ class ClarifierTest(unittest.TestCase):
         self.assertTrue(is_vague(QUESTIONS["q_size"], "небольшая команда"))
         self.assertFalse(is_vague(QUESTIONS["q_size"], "7 человек"))
         self.assertFalse(is_vague(QUESTIONS["q_size"], "пять человек"))
+        self.assertTrue(is_vague(QUESTIONS["q_products"], "Продаем ПО битрикс24 и амоцрм, настраиваем их"))
+        self.assertFalse(is_vague(QUESTIONS["q_products"], "Битрикс24 и настройка, чек 2000$"))
+        self.assertFalse(is_vague(QUESTIONS["q_products"], "Внедрение CRM, средний чек 3к рублей"))
+        self.assertTrue(is_vague(QUESTIONS["q_products"], "Продаем лицензии 1С и внедряем их клиентам"))
 
     def test_vague_marker(self):
         self.assertTrue(is_vague(QUESTIONS["q_decisions"], "ну по-разному бывает"))

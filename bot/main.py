@@ -31,12 +31,13 @@ async def _send(update: Update, messages: list[str]) -> None:
         await update.effective_chat.send_message(text)
 
 
-async def _save(update: Update, context: ContextTypes.DEFAULT_TYPE, interview: Interview) -> None:
+async def _save(update: Update, context: ContextTypes.DEFAULT_TYPE, interview: Interview,
+                was_finished: bool = False) -> None:
     chat_id = update.effective_chat.id
     user = _user(update)
     storage.save_session(chat_id, user, interview.state)
-    if not interview.finished:
-        return
+    if was_finished or not interview.finished:
+        return  # ответы отправляем один раз — в момент завершения
     export = interview.export()
     markdown = to_markdown(export, user)
     json_path, md_path = storage.save_finished(chat_id, user, export, markdown)
@@ -71,8 +72,9 @@ async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await start(update, context)
         return
     interview = Interview(state)
+    was_finished = interview.finished
     await _send(update, interview.skip())
-    await _save(update, context, interview)
+    await _save(update, context, interview, was_finished)
 
 
 async def answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -81,8 +83,9 @@ async def answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await start(update, context)
         return
     interview = Interview(state)
+    was_finished = interview.finished
     await _send(update, interview.reply(update.message.text))
-    await _save(update, context, interview)
+    await _save(update, context, interview, was_finished)
 
 
 async def voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

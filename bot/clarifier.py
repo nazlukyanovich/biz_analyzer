@@ -32,7 +32,10 @@ def word_count(text: str) -> int:
 
 
 def has_number(text: str) -> bool:
-    return bool(re.search(r"\d", text)) or bool(NUMBER_WORDS.search(text.lower()))
+    # Цифры внутри названий («Битрикс24», «1С») — не число
+    cleaned = re.sub(r"\b1[сc]\b", "", text, flags=re.IGNORECASE)
+    standalone = re.search(r"(?<!\w)\d", cleaned)
+    return bool(standalone) or bool(NUMBER_WORDS.search(text.lower()))
 
 
 def is_vague(question: Question, text: str) -> bool:
