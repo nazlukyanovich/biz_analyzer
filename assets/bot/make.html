@@ -17,6 +17,7 @@
 <body>
 <div id="status">Рисую…</div>
 <canvas id="welcome" width="1280" height="720"></canvas>
+<canvas id="finish" width="1280" height="720"></canvas>
 <canvas id="icon" width="640" height="640"></canvas>
 <script>
 const C = {
@@ -216,6 +217,106 @@ function drawWelcome() {
   pill(ctx, px, py, "Можно голосом", false);
 }
 
+// --- Последнее сообщение: анкета пройдена, что дальше ---
+
+// Шаги, как таймлайн на сайте: линия-градиент и точки. center — подписи по центру точек
+function timeline(ctx, x0, ty, gap, steps, center = false) {
+  const dot = 46;
+  const line = ctx.createLinearGradient(x0, 0, x0 + gap * (steps.length - 1) + dot, 0);
+  line.addColorStop(0, C.violet); line.addColorStop(0.5, C.magenta); line.addColorStop(1, C.peach);
+  ctx.fillStyle = line;
+  ctx.fillRect(x0 + dot / 2, ty + dot / 2 - 1, gap * (steps.length - 1), 2);
+  steps.forEach(([a, b], i) => {
+    const x = x0 + i * gap, cx = x + dot / 2, cy = ty + dot / 2;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, dot / 2, 0, Math.PI * 2);
+    if (i === 0) {
+      ctx.shadowColor = "rgba(255,179,138,.6)"; ctx.shadowBlur = 24;
+      ctx.fillStyle = peachGradient(ctx, x, x + dot); ctx.fill();
+    } else {
+      ctx.shadowColor = "rgba(194,75,255,.35)"; ctx.shadowBlur = 20;
+      ctx.fillStyle = "#1A1033"; ctx.fill();
+      ctx.shadowColor = "transparent";
+      ctx.strokeStyle = "rgba(183,156,255,.55)"; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+    ctx.fillStyle = i === 0 ? "#2A0E1A" : C.text;
+    ctx.font = `800 17px ${DISPLAY}`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(i === 0 ? "✓" : String(i + 1), cx, cy + 1);
+    ctx.textBaseline = "alphabetic";
+    ctx.textAlign = center ? "center" : "left";
+    const tx = center ? cx : x;
+    ctx.fillStyle = C.text; ctx.font = `700 20px ${BODY}`;
+    ctx.fillText(a, tx, ty + dot + 34);
+    ctx.fillStyle = C.soft; ctx.font = `500 18px ${BODY}`;
+    ctx.fillText(b, tx, ty + dot + 60);
+    ctx.textAlign = "left";
+  });
+}
+
+// Строка из кусков [текст, акцент] по центру
+function centeredLine(ctx, parts, cx, y) {
+  const widths = parts.map(([t]) => ctx.measureText(t).width);
+  let x = cx - widths.reduce((a, b) => a + b, 0) / 2;
+  parts.forEach(([t, accent], i) => {
+    ctx.fillStyle = accent ? peachGradient(ctx, x, x + widths[i]) : C.text;
+    ctx.fillText(t, x, y);
+    x += widths[i];
+  });
+}
+
+function kicker(ctx, text, x, y, align = "left") {
+  ctx.fillStyle = C.peach;
+  ctx.font = `700 18px ${BODY}`;
+  ctx.letterSpacing = "3px";
+  ctx.textAlign = align;
+  ctx.fillText(text, x, y);
+  ctx.textAlign = "left";
+  ctx.letterSpacing = "0px";
+}
+
+const FINISH_STEPS = [["Ответы", "получены"], ["Разбираем", "ваш бизнес"], ["Пришлём отчёт", "до 2 рабочих дней"]];
+
+// «Восход планеты»: огромная сфера встаёт снизу, текст и шаги по центру над ней
+function drawFinish() {
+  const cv = document.getElementById("finish"), ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  // свечение над горизонтом (своё, обычная аура сферы на таком размере заливает весь кадр)
+  const glow = ctx.createRadialGradient(W / 2, 760, 0, W / 2, 760, 720);
+  glow.addColorStop(0, "rgba(194,75,255,.55)"); glow.addColorStop(0.45, "rgba(106,61,240,.28)");
+  glow.addColorStop(1, "rgba(10,6,20,0)");
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  // кольцо-орбита над горизонтом
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,211,184,.85)"; ctx.lineWidth = 3;
+  ctx.shadowColor = "rgba(255,179,138,.75)"; ctx.shadowBlur = 26;
+  ctx.beginPath(); ctx.ellipse(W / 2, 690, 760, 150, 0, Math.PI * 1.03, Math.PI * 1.97); ctx.stroke();
+  ctx.restore();
+  // край огромной сферы снизу
+  const cy = 1230, r = 660;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(W / 2, cy, r, 0, Math.PI * 2); ctx.clip();
+  const g = ctx.createRadialGradient(W / 2 - 180, cy - r + 40, 0, W / 2 - 180, cy - r + 40, 900);
+  [[0, "#FFFFFF"], [0.08, "#F2EAFF"], [0.28, "#B79CFF"], [0.55, "#6A3DF0"], [0.85, "#2A1272"], [1, "#140838"]]
+    .forEach(([o, c]) => g.addColorStop(o, c));
+  ctx.fillStyle = g; ctx.fillRect(0, cy - r, W, 2 * r);
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,211,184,.7)"; ctx.lineWidth = 2;
+  ctx.shadowColor = "rgba(255,179,138,.9)"; ctx.shadowBlur = 30;
+  ctx.beginPath(); ctx.arc(W / 2, cy, r, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+  ctx.restore();
+  grain(ctx, W, H, 0.16);
+  kicker(ctx, "АНКЕТА ПРОЙДЕНА", W / 2, 110, "center");
+  ctx.font = `800 60px ${DISPLAY}`;
+  centeredLine(ctx, [["Спасибо!", false]], W / 2, 190);
+  centeredLine(ctx, [["Разбор уже ", false], ["в работе", true]], W / 2, 260);
+  const gap = 270;
+  timeline(ctx, W / 2 - gap - 23, 318, gap, FINISH_STEPS, true);
+}
+
 function drawIcon() {
   const cv = document.getElementById("icon"), ctx = cv.getContext("2d");
   const W = cv.width, H = cv.height;
@@ -238,12 +339,16 @@ async function save(id, name, type, quality) {
     document.fonts.load(`700 20px ${BODY}`, sample),
   ]);
   drawWelcome();
+  drawFinish();
   drawIcon();
   const st = document.getElementById("status");
+  // ?only=finish — сохранить только одну картинку, остальные не трогать
+  const only = new URLSearchParams(location.search).get("only");
+  const files = [["welcome", "welcome.jpg", "image/jpeg", 0.92], ["finish", "finish.jpg", "image/jpeg", 0.92],
+                 ["icon", "icon.png", "image/png"]].filter(([id]) => !only || id === only);
   try {
-    await save("welcome", "welcome.jpg", "image/jpeg", 0.92);
-    await save("icon", "icon.png", "image/png");
-    st.textContent = "Готово: welcome.jpg и icon.png сохранены";
+    for (const f of files) await save(...f);
+    st.textContent = "Готово: " + files.map(f => f[1]).join(", ") + " сохранены";
   } catch (e) {
     st.textContent = "Нарисовано, но не сохранено (нужен локальный сервер): " + e.message;
   }

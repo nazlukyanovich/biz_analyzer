@@ -7,7 +7,7 @@ import http.server
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ALLOWED = {"welcome.jpg", "icon.png"}
+ALLOWED = {"welcome.jpg", "finish.jpg", "icon.png"}
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):

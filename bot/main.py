@@ -23,7 +23,7 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler, Con
 
 from . import reminders
 from .export import to_markdown
-from .interview import Interview
+from .interview import FINISHED, Interview
 from .storage import Storage
 from .transcriber import Transcriber, TranscriptionError, make_transcriber
 
@@ -53,6 +53,7 @@ PRIVACY_DETAILS = (
 
 TYPING_SECONDS = 0.7  # пауза с «печатает…» перед ответом бота
 WELCOME_IMAGE = Path(__file__).resolve().parent.parent / "assets" / "bot" / "welcome.jpg"
+FINISH_IMAGE = WELCOME_IMAGE.with_name("finish.jpg")
 
 USER_COMMANDS = [
     BotCommand("start", "Начать или продолжить"),
@@ -138,6 +139,12 @@ async def _ask(update: Update, context: ContextTypes.DEFAULT_TYPE, interview: In
         if isinstance(markup, InlineKeyboardMarkup) and len(messages) == 1:
             messages = ["Хорошо."] + messages
         first_markup = ReplyKeyboardRemove()
+    if interview.finished and messages and messages[-1] == FINISHED and FINISH_IMAGE.exists():
+        # Финальное сообщение — подписью к картинке
+        await _send(update, messages[:-1])
+        with FINISH_IMAGE.open("rb") as f:
+            await update.effective_chat.send_photo(f, caption=FINISHED, reply_markup=markup)
+        return
     msg = await _send(update, messages, markup, first_markup)
     if markup is CONTACT_KEYBOARD:
         context.chat_data["contact_kb"] = True
